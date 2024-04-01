@@ -1,7 +1,7 @@
 ---
 
 vm:
-  box_image: bento/ubuntu-22.04
+  box_image: ubuntu/focal64
   ip_prefix: 10.0.0.
   ip_start: 100
   master:
@@ -14,7 +14,7 @@ vm:
 
 kubernetes:
   cluster_name: local-k8s 
-  version: 1.22.13-00
+  version: 1.24.13-1.1
   pod_cidr: 172.12.1.0/16
   service_cidr: 172.26.1.0/16
 

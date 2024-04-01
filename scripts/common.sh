@@ -31,17 +31,16 @@ sudo apt-get install -y curl gnupg2 software-properties-common apt-transport-htt
 if [ ! "$(command -v docker)" ]; then
     # Add Docker's official GPG key:
     sudo install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-    # Add the repository to Apt sources:
-    echo \
-        "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-        "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-        sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    # Add the containerd official GPG key
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o/etc/apt/keyrings/containerd-archive-keyring.gpg
+    # Set up the repository
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/containerd-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/containerd.list
+    sudo chmod a+r /etc/apt/keyrings/containerd-archive-keyring.gpg
+
     sudo apt-get update -y
-    VERSION_STRING=$(apt-cache madison docker-ce | grep $DOCKER_ENGINE_VERSION | head -1 | awk '{print $3}')
-    sudo apt-get install -y docker-ce=$VERSION_STRING docker-ce-cli=$VERSION_STRING containerd.io
+    DOCKER_CE_VERSION_STRING=$(apt-cache madison docker-ce | grep $DOCKER_ENGINE_VERSION | head -1 | awk '{print $3}')
+    sudo apt-get install -y docker-ce=$DOCKER_CE_VERSION_STRING docker-ce-cli=$DOCKER_CE_VERSION_STRING containerd.io
 
     # Refer: https://kubernetes.io/docs/setup/production-environment/container-runtimes/#cgroup-drivers
     sudo mkdir -p /etc/docker
@@ -59,16 +58,20 @@ EOF
     sudo systemctl daemon-reload
     sudo systemctl restart docker
     sudo docker version
+    sudo containerd config default > /etc/containerd/config.toml
+    sudo systemctl restart containerd
+    sudo containerd --v
 fi
 
 # Install kubeadm tools 
 # Refer: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
 
 ## Install kubeadm kubelet kubectl
+# command -v kubeadm 会返回 kubeadm 命令的路径如果它已经安装，如果没有安装，则返回空; ! "$()"则表达式的结果为真。
 if [ ! "$(command -v kubeadm)" ]; then
     # Refer: https://github.com/kubernetes/k8s.io/pull/4837#issuecomment-1446426585
-    sudo curl -fsSLo /usr/share/keyrings/kubernetes-archive-keyring.gpg https://dl.k8s.io/apt/doc/apt-key.gpg
-    echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
+    sudo curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.24/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.24/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
     sudo apt-get update -y
     KUBE_VERSION_STR=$(apt-cache madison kubelet | grep $KUBE_VERSION | head -1 | awk '{print $3}')
